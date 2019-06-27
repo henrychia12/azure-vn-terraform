@@ -1,5 +1,8 @@
-# Create a resource group if it doesn’t exist
-resource "azurerm_resource_group" "myterraformgroup" {
+provider "azurerm" {
+	version = "=1.30.1"
+}
+
+resource "azurerm_resource_group" "main" {
     name     = "myResourceGroup"
     location = "uksouth"
 
@@ -12,8 +15,8 @@ resource "azurerm_resource_group" "myterraformgroup" {
 resource "azurerm_virtual_network" "myterraformnetwork" {
     name                = "myVnet"
     address_space       = ["10.0.0.0/16"]
-    location            = "uksouth"
-    resource_group_name = "${azurerm_resource_group.myterraformgroup.name}"
+    location            = "${azurerm_resource_group.main.location}"
+    resource_group_name = "${azurerm_resource_group.main.name}"
 
     tags = {
         environment = "Terraform Demo"
@@ -23,7 +26,7 @@ resource "azurerm_virtual_network" "myterraformnetwork" {
 # Create subnet
 resource "azurerm_subnet" "myterraformsubnet" {
     name                 = "mySubnet"
-    resource_group_name  = "${azurerm_resource_group.myterraformgroup.name}"
+    resource_group_name  = "${azurerm_resource_group.main.name}"
     virtual_network_name = "${azurerm_virtual_network.myterraformnetwork.name}"
     address_prefix       = "10.0.1.0/24"
 }
@@ -31,9 +34,10 @@ resource "azurerm_subnet" "myterraformsubnet" {
 # Create public IPs
 resource "azurerm_public_ip" "myterraformpublicip" {
     name                         = "myPublicIP"
-    location                     = "uksouth"
-    resource_group_name          = "${azurerm_resource_group.myterraformgroup.name}"
+    location                     = "${azurerm_resource_group.main.location}"
+    resource_group_name          = "${azurerm_resource_group.main.name}"
     allocation_method            = "Dynamic"
+    domain_name_label            = "azureadm-${formatdate("DDMMYYhhmmss", timestamp())}"
 
     tags = {
         environment = "Terraform Demo"
@@ -43,8 +47,8 @@ resource "azurerm_public_ip" "myterraformpublicip" {
 # Create Network Security Group and rule
 resource "azurerm_network_security_group" "myterraformnsg" {
     name                = "myNetworkSecurityGroup"
-    location            = "uksouth"
-    resource_group_name = "${azurerm_resource_group.myterraformgroup.name}"
+    location            = "${azurerm_resource_group.main.location}"
+    resource_group_name = "${azurerm_resource_group.main.name}"
     
     security_rule {
         name                       = "SSH"
@@ -58,6 +62,18 @@ resource "azurerm_network_security_group" "myterraformnsg" {
         destination_address_prefix = "*"
     }
 
+    security_rule {
+        name                       = "Jenkins"
+        priority                   = 200
+        direction                  = "Inbound"
+        access                     = "Allow"
+        protocol                   = "Tcp"
+        source_port_range          = "*"
+        destination_port_range     = "8080"
+        source_address_prefix      = "*"
+        destination_address_prefix = "*"
+    }
+
     tags = {
         environment = "Terraform Demo"
     }
@@ -66,8 +82,8 @@ resource "azurerm_network_security_group" "myterraformnsg" {
 # Create network interface
 resource "azurerm_network_interface" "myterraformnic" {
     name                      = "myNIC"
-    location                  = "uksouth"
-    resource_group_name       = "${azurerm_resource_group.myterraformgroup.name}"
+    location                  = "${azurerm_resource_group.main.location}"
+    resource_group_name       = "${azurerm_resource_group.main.name}"
     network_security_group_id = "${azurerm_network_security_group.myterraformnsg.id}"
 
     ip_configuration {
@@ -86,7 +102,7 @@ resource "azurerm_network_interface" "myterraformnic" {
 resource "random_id" "randomId" {
     keepers = {
         # Generate a new ID only when a new resource group is defined
-        resource_group = "${azurerm_resource_group.myterraformgroup.name}"
+        resource_group = "${azurerm_resource_group.main.name}"
     }
     
     byte_length = 8
@@ -95,8 +111,8 @@ resource "random_id" "randomId" {
 # Create storage account for boot diagnostics
 resource "azurerm_storage_account" "mystorageaccount" {
     name                        = "diag${random_id.randomId.hex}"
-    resource_group_name         = "${azurerm_resource_group.myterraformgroup.name}"
-    location                    = "uksouth"
+    resource_group_name         = "${azurerm_resource_group.main.name}"
+    location                    = "${azurerm_resource_group.main.location}"
     account_tier                = "Standard"
     account_replication_type    = "LRS"
 
@@ -108,8 +124,8 @@ resource "azurerm_storage_account" "mystorageaccount" {
 # Create virtual machine
 resource "azurerm_virtual_machine" "myterraformvm" {
     name                  = "myVM"
-    location              = "uksouth"
-    resource_group_name   = "${azurerm_resource_group.myterraformgroup.name}"
+    location              = "${azurerm_resource_group.main.location}"
+    resource_group_name   = "${azurerm_resource_group.main.name}"
     network_interface_ids = ["${azurerm_network_interface.myterraformnic.id}"]
     vm_size               = "Standard_DS1_v2"
 
@@ -128,14 +144,14 @@ resource "azurerm_virtual_machine" "myterraformvm" {
     }
 
     os_profile {
-        computer_name  = "myvm"
-        admin_username = "azureuser"
+        computer_name  = "hostname"
+        admin_username = "azureadm"
     }
 
     os_profile_linux_config {
         disable_password_authentication = true
         ssh_keys {
-            path     = "/home/azureuser/.ssh/authorized_keys"
+            path     = "/home/azureadm/.ssh/authorized_keys"
             key_data = file("~/.ssh/id_rsa.pub")
         }
     }
@@ -148,4 +164,20 @@ resource "azurerm_virtual_machine" "myterraformvm" {
     tags = {
         environment = "Terraform Demo"
     }
+
+    provisioner "remote-exec" {
+        inline = [
+                  "git clone https://github.com/henrychia12/jenkinsTask.git", 
+                  "cd ~/jenkinsTask/scripts", 
+                  "./install.sh" 
+                 ]
+        connection {
+	    type = "ssh"
+	    user = "azureadm"
+	    private_key = file("~/.ssh/id_rsa")
+	    host = "${azurerm_public_ip.myterraformpublicip.fqdn}"
+       }
+    } 
 }
+
+
