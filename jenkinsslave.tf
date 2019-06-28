@@ -98,7 +98,7 @@ resource "azurerm_virtual_machine" "jenkinsslavevm" {
 
     provisioner "remote-exec" {
         inline = [
-                  "git https://github.com/henrychia12/python-webserver.git" 
+                  "git clone https://github.com/henrychia12/python-webserver.git" 
                  ]
         connection {
 	    type = "ssh"
