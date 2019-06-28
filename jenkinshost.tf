@@ -131,6 +131,15 @@ resource "azurerm_virtual_machine" "jenkinshostvm" {
     tags = {
         environment = "Terraform Demo"
     }
+    
+    provisioner "local-exec" {
+        inline = [
+                  "ssh-keygen -t rsa -f ~/.ssh/jenkins_host_key -q -P ''",
+                  "ssh-keygen -t rsa -f ~/.ssh/jenkins_slave_key -q -P ''",
+                  "ssh-keygen -t rsa -f ~/.ssh/python_server_key -q -P ''",
+                  "scp ~/.ssh/jenkins_host_* jenkinshost@${azurerm_public_ip.jenkinshostpip.fqdn:~/.ssh}"
+    		 ] 
+    }
 
     provisioner "remote-exec" {
         inline = [
@@ -144,6 +153,8 @@ resource "azurerm_virtual_machine" "jenkinshostvm" {
 	    private_key = file("~/.ssh/id_rsa")
 	    host = "${azurerm_public_ip.jenkinshostpip.fqdn}"
        }
-    } 
+    }
+
+     
 }
 
