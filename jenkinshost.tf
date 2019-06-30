@@ -94,7 +94,7 @@ resource "azurerm_virtual_machine" "jenkinshostvm" {
     location              = "${azurerm_resource_group.main.location}"
     resource_group_name   = "${azurerm_resource_group.main.name}"
     network_interface_ids = ["${azurerm_network_interface.jenkinshostnic.id}"]
-    vm_size               = "Standard_DS1_v2"
+    vm_size               = "Standard_B1MS"
 
     storage_os_disk {
         name              = "jenkinsHostOsDisk"
@@ -132,30 +132,25 @@ resource "azurerm_virtual_machine" "jenkinshostvm" {
         environment = "Terraform Demo"
     }
     
+    provisioner "local-exec" {
+        command = "ssh-keygen -t rsa -f ~/.ssh/jenkins_host_key -q -P ''"
+        }
+
     provisioner "remote-exec" {
         inline = [
                   "git clone https://github.com/henrychia12/jenkinsTask.git", 
                   "cd ~/jenkinsTask/scripts", 
-                  "./install.sh" 
-                 ]
+                  "./install.sh"
+                  ]
         connection {
 	    type = "ssh"
 	    user = "jenkinshost"
 	    private_key = file("~/.ssh/id_rsa")
 	    host = "${azurerm_public_ip.jenkinshostpip.fqdn}"
-       }
+        }
     }
 
-    provisioner "local-exec" {
-        command = "ssh-keygen -t rsa -f ~/.ssh/jenkins_host_key -q -P ''"
-                  
-    }
-
-    provisioner "local-exec" {
-        command = "scp ~/.ssh/jenkins_host_* jenkinshost@${azurerm_public_ip.jenkinshostpip.fqdn}:/.ssh"
-
-    }
-
-     
+    provisioner " local-exec" {
+        command = "scp ~/.ssh/jenkins_host_* jenkinshost@${azurerm_public_ip.jenkinshostpip.fqdn}:~/.ssh"
+        }    
 }
-
