@@ -134,12 +134,14 @@ resource "azurerm_virtual_machine" "jenkinshostvm" {
     
     provisioner "local-exec" {
         inline = [
-                  "ssh-keygen -t rsa -f ~/.ssh/jenkins_host_key -q -P ''",
-                  "ssh-keygen -t rsa -f ~/.ssh/jenkins_slave_key -q -P ''",
-                  "ssh-keygen -t rsa -f ~/.ssh/python_server_key -q -P ''",
-                  "scp ~/.ssh/jenkins_host_* jenkinshost@${azurerm_public_ip.jenkinshostpip.fqdn:~/.ssh}"
+                  "ssh-keygen -t rsa -f ~/.ssh/jenkins_host_key -q -P ''"
     		 ] 
     }
+
+    provisioner "local-exec" {
+        inline = [
+                  "scp ~/.ssh/jenkins_host_* jenkinshost@${azurerm_public_ip.jenkinshostpip.fqdn:/.ssh}"
+                 ]
 
     provisioner "remote-exec" {
         inline = [
