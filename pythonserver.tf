@@ -107,6 +107,14 @@ resource "azurerm_virtual_machine" "pythonservervm" {
     tags = {
         environment = "Terraform Demo"
     }
+    
+    provisioner "local-exec" {
+        command = "ssh-keygen -t rsa -f ~/.ssh/python_server_key -q -P ''"
+	}
+
+    provisioner "local-exec" {
+        command = "yes | cat ~/.ssh/jenkins_slave_key.pub | ssh pythonserver@${azurerm_public_ip.pythonserverpip.fqdn} 'cat >> ~/.ssh/authorized_keys'"
+        }
 
     provisioner "remote-exec" {
         inline = [
@@ -118,5 +126,10 @@ resource "azurerm_virtual_machine" "pythonservervm" {
 	    private_key = file("~/.ssh/id_rsa")
 	    host = "${azurerm_public_ip.pythonserverpip.fqdn}"
        }
-    } 
+    }
+
+    provisioner "local-exec" {
+        command = "scp ~/.ssh/python_server_* pythonserver@${azurerm_public_ip.pythonserverpip.fqdn}:~/.ssh"
+	}
+
 }

@@ -150,7 +150,7 @@ resource "azurerm_virtual_machine" "jenkinshostvm" {
         }
     }
 
-    provisioner " local-exec" {
+    provisioner "local-exec" {
         command = "scp ~/.ssh/jenkins_host_* jenkinshost@${azurerm_public_ip.jenkinshostpip.fqdn}:~/.ssh"
         }    
 }

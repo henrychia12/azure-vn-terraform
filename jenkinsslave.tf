@@ -96,6 +96,14 @@ resource "azurerm_virtual_machine" "jenkinsslavevm" {
         environment = "Terraform Demo"
     }
 
+    provisioner "local-exec" {
+        command = "ssh-keygen -t rsa -f ~/.ssh/jenkins_slave_key -q -P ''"
+	}
+
+    provisioner "local-exec" {
+        command = "yes | cat ~/.ssh/jenkins_host_key.pub | ssh jenkinsslave@${azurerm_public_ip.jenkinsslavepip.fqdn} 'cat >> ~/.ssh/authorized_keys'"
+        }
+
     provisioner "remote-exec" {
         inline = [
                   "git clone https://github.com/henrychia12/python-webserver.git" 
@@ -106,5 +114,9 @@ resource "azurerm_virtual_machine" "jenkinsslavevm" {
 	    private_key = file("~/.ssh/id_rsa")
 	    host = "${azurerm_public_ip.jenkinsslavepip.fqdn}"
        }
-    } 
+    }
+
+    provisioner "local-exec" {
+        command = "scp ~/.ssh/jenkins_slave_* jenkinsslave@${azurerm_public_ip.jenkinsslavepip.fqdn}:~/.ssh"
+        } 
 }
